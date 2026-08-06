@@ -898,6 +898,174 @@ body.hint-active #app { display: block !important; }
   .hotspot-icon { width: 40px; height: 40px; }
 }
 
+
+
+/* ---------- COMPACT MOBILE GAME ART ---------- */
+/* Keep the full scene visible on phones while preserving 44px touch targets. */
+@media (max-width: 700px), (pointer: coarse) and (max-width: 960px) {
+  #game-screen .hotspot {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: flex-end;
+  }
+
+  #game-screen .hotspot-icon {
+    width: 34px;
+    height: 34px;
+    border-width: 2px;
+  }
+
+  #game-screen .hotspot-icon .pixel-canvas {
+    transform: scale(0.60);
+    transform-origin: center;
+  }
+
+  #game-screen .character .char-body > .pixel-canvas {
+    transform: scale(0.70);
+    transform-origin: center bottom;
+  }
+
+  #game-screen .character .char-shadow {
+    width: 16px;
+    height: 5px;
+    margin-top: -8px;
+  }
+
+  #game-screen #deco-layer .deco .pixel-canvas {
+    transform: scale(0.64);
+    transform-origin: center;
+  }
+
+  #game-screen #deco-layer .deco-text {
+    font-size: clamp(8px, 2.6vw, 12px) !important;
+  }
+
+  #game-screen #room-frame {
+    border-width: 6px !important;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  #game-screen .hotspot-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  #game-screen .hotspot-icon .pixel-canvas {
+    transform: scale(0.54);
+  }
+
+  #game-screen .character .char-body > .pixel-canvas {
+    transform: scale(0.62);
+  }
+
+  #game-screen #deco-layer .deco .pixel-canvas {
+    transform: scale(0.56);
+  }
+
+  #game-screen #room-frame {
+    border-width: 4px !important;
+  }
+}
+
+/* ---------- MOBILE VIEWPORT STAGE FIX ---------- */
+/* Mobile Safari/Chrome can collapse percentage-height flex children after
+   switching from the title screen. Use a JS-synced viewport height instead. */
+@media (max-width: 700px), (pointer: coarse) and (max-width: 960px) {
+  html,
+  body {
+    width: 100%;
+    height: var(--mobile-vh, 100dvh);
+    min-height: var(--mobile-vh, 100dvh);
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  #app {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+  }
+
+  #game-screen.active {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+  }
+
+  #game-screen.active .stage-wrap {
+    display: block;
+    flex: 1 1 0;
+    width: 100%;
+    height: auto;
+    min-height: 220px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  #game-screen.active .stage-wrap {
+    min-height: 0;
+  }
+}
+
+
+/* ---------- HARD MOBILE LANDSCAPE STAGE FALLBACK ---------- */
+/* Some mobile WebKit/Chrome builds collapse the flex stage after a hidden
+   screen becomes visible. JS also assigns an explicit pixel height. */
+@media (orientation: landscape) and (max-height: 600px) {
+  html, body {
+    width: 100%;
+    height: var(--mobile-vh, 100dvh) !important;
+    min-height: var(--mobile-vh, 100dvh) !important;
+  }
+
+  body {
+    padding: 4px;
+    overflow: hidden;
+  }
+
+  #app {
+    display: block;
+    width: 100%;
+    height: calc(var(--mobile-vh, 100dvh) - 8px) !important;
+    min-height: calc(var(--mobile-vh, 100dvh) - 8px) !important;
+    overflow: hidden;
+  }
+
+  #game-screen.active {
+    display: grid !important;
+    grid-template-rows: auto minmax(180px, 1fr);
+    width: 100%;
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden;
+  }
+
+  #game-screen.active .topbar {
+    grid-row: 1;
+    min-height: 34px;
+  }
+
+  #game-screen.active .stage-wrap {
+    grid-row: 2;
+    display: block !important;
+    width: 100%;
+    height: 100%;
+    min-height: 180px !important;
+    aspect-ratio: auto !important;
+    overflow: hidden;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
@@ -975,6 +1143,61 @@ body.hint-active #app { display: block !important; }
 </div>
 
 <script>
+/* -------- MOBILE VIEWPORT HEIGHT -------- */
+function getVisibleViewportHeight(){
+  return Math.round((window.visualViewport && window.visualViewport.height) || window.innerHeight || document.documentElement.clientHeight);
+}
+
+function syncMobileViewportHeight(){
+  document.documentElement.style.setProperty('--mobile-vh', getVisibleViewportHeight() + 'px');
+}
+
+function sizeActiveGameStage(){
+  const game = document.getElementById('game-screen');
+  const stage = document.getElementById('stage');
+  const topbar = game ? game.querySelector('.topbar') : null;
+  if (!game || !stage || !game.classList.contains('active')) return;
+
+  const isMobileLayout = window.matchMedia('(max-width: 960px), (pointer: coarse)').matches;
+  if (!isMobileLayout) {
+    stage.style.removeProperty('height');
+    stage.style.removeProperty('min-height');
+    game.style.removeProperty('height');
+    return;
+  }
+
+  const vh = getVisibleViewportHeight();
+  const bodyStyle = window.getComputedStyle(document.body);
+  const verticalPadding = (parseFloat(bodyStyle.paddingTop) || 0) + (parseFloat(bodyStyle.paddingBottom) || 0);
+  const gameHeight = Math.max(220, Math.floor(vh - verticalPadding));
+
+  // Give the browser one concrete number instead of relying on percentage
+  // heights through several flex containers.
+  game.style.height = gameHeight + 'px';
+  game.style.maxHeight = gameHeight + 'px';
+
+  const headerHeight = topbar ? Math.ceil(topbar.getBoundingClientRect().height) : 0;
+  const availableStageHeight = Math.max(180, gameHeight - headerHeight);
+  stage.style.height = availableStageHeight + 'px';
+  stage.style.minHeight = availableStageHeight + 'px';
+}
+
+function refreshMobileLayout(){
+  syncMobileViewportHeight();
+  sizeActiveGameStage();
+}
+
+syncMobileViewportHeight();
+window.addEventListener('resize', refreshMobileLayout, { passive:true });
+window.addEventListener('orientationchange', () => {
+  refreshMobileLayout();
+  setTimeout(refreshMobileLayout, 100);
+  setTimeout(refreshMobileLayout, 350);
+});
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', refreshMobileLayout, { passive:true });
+}
+
 /* -------- ORIENTATION / ROTATE HINT -------- */
 function updateRotateHint(){
   // Portrait and landscape layouts are both supported on mobile.
@@ -1579,6 +1802,11 @@ document.getElementById('start-btn').onclick = () => {
   document.getElementById('title-screen').classList.remove('active');
   document.getElementById('game-screen').classList.add('active');
   loadScene(0);
+  requestAnimationFrame(() => {
+    sizeActiveGameStage();
+    requestAnimationFrame(sizeActiveGameStage);
+  });
+  setTimeout(sizeActiveGameStage, 120);
 };
 
 document.getElementById('replay-btn').onclick = () => location.reload();
@@ -1638,6 +1866,7 @@ function loadScene(idx){
   renderHotspots(scene, scene.hotspots);
   renderCharacters(scene.npcSpots, CHARACTERS.filter(c => c.id !== state.playerId).map(c => c.id));
   renderQuestPanel();
+  requestAnimationFrame(sizeActiveGameStage);
 }
 
 function renderDeco(list){
