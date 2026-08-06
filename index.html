@@ -968,6 +968,78 @@ body.hint-active #app { display: block !important; }
   }
 }
 
+
+/* ---------- GAME MUSIC ---------- */
+.music-btn {
+  flex: 0 0 auto;
+  min-width: 42px;
+  min-height: 40px;
+  padding: 6px 9px;
+  font-family: 'Press Start 2P', cursive;
+  font-size: 12px;
+  line-height: 1;
+  color: #fff;
+  background: #241636;
+  border: 2px solid #fff;
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.5);
+  cursor: pointer;
+}
+
+.music-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 rgba(0,0,0,0.5);
+}
+
+.music-btn.is-playing {
+  color: #3C2200;
+  background: #FFD166;
+  border-color: #000;
+}
+
+.music-btn.needs-tap {
+  animation: musicPulse 1s steps(2) infinite;
+}
+
+@keyframes musicPulse {
+  0%, 100% { box-shadow: 3px 3px 0 rgba(0,0,0,0.5); }
+  50% { box-shadow: 0 0 0 4px rgba(255,209,102,0.28), 3px 3px 0 rgba(0,0,0,0.5); }
+}
+
+/* Keep the title action reachable in mobile portrait, including iOS Safari. */
+@media (orientation: portrait) and (max-width: 700px) {
+  #title-screen.active {
+    padding-bottom: calc(88px + var(--safe-bottom));
+    scroll-padding-bottom: calc(88px + var(--safe-bottom));
+  }
+
+  #title-screen #start-btn {
+    position: sticky;
+    bottom: max(8px, var(--safe-bottom));
+    z-index: 12;
+    flex: 0 0 auto;
+    margin-top: 4px;
+  }
+}
+
+@media (max-width: 700px) {
+  .music-btn {
+    min-width: 40px;
+    min-height: 40px;
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .music-btn {
+    min-width: 34px;
+    min-height: 32px;
+    padding: 4px 6px;
+    font-size: 9px;
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.5);
+  }
+}
+
 /* ---------- MOBILE VIEWPORT STAGE FIX ---------- */
 /* Mobile Safari/Chrome can collapse percentage-height flex children after
    switching from the title screen. Use a JS-synced viewport height instead. */
@@ -1105,6 +1177,7 @@ body.hint-active #app { display: block !important; }
     <div class="topbar">
       <div class="scene-label" id="scene-label">Legacy Gym</div>
       <div class="progress-dots" id="progress-dots"></div>
+      <button class="music-btn" id="music-toggle" type="button" aria-label="Pause music" title="Pause music">♫</button>
       <button class="quest-btn" id="quest-toggle">Side Quest <span class="badge" id="quest-badge">0</span></button>
     </div>
     <div class="stage-wrap" id="stage">
@@ -1141,6 +1214,10 @@ body.hint-active #app { display: block !important; }
   </div>
 
 </div>
+
+<audio id="game-music" preload="auto" loop playsinline>
+  <source src="https://cdn1.suno.ai/721ee8c9-ac35-472b-8fa7-055d48bdb6c7.mp3" type="audio/mpeg">
+</audio>
 
 <script>
 /* -------- MOBILE VIEWPORT HEIGHT -------- */
@@ -1771,6 +1848,81 @@ function challengeStats(){
   return { done, total };
 }
 
+
+/* -------- GAME MUSIC -------- */
+const SUNO_SHARE_URL = 'https://suno.com/s/PtKJKKO1XA3Z1hZB';
+const gameMusic = document.getElementById('game-music');
+const musicToggle = document.getElementById('music-toggle');
+let musicLoadFailed = false;
+
+gameMusic.volume = 0.58;
+
+function updateMusicButton(mode){
+  musicToggle.classList.remove('is-playing', 'needs-tap');
+
+  if (mode === 'playing') {
+    musicToggle.textContent = '♫';
+    musicToggle.classList.add('is-playing');
+    musicToggle.setAttribute('aria-label', 'Pause music');
+    musicToggle.title = 'Pause music';
+  } else if (mode === 'retry') {
+    musicToggle.textContent = '♫';
+    musicToggle.classList.add('needs-tap');
+    musicToggle.setAttribute('aria-label', 'Tap to start music');
+    musicToggle.title = 'Tap to start music';
+  } else if (mode === 'error') {
+    musicToggle.textContent = '↗';
+    musicToggle.setAttribute('aria-label', 'Open song on Suno');
+    musicToggle.title = 'Open song on Suno';
+  } else {
+    musicToggle.textContent = '♪';
+    musicToggle.setAttribute('aria-label', 'Play music');
+    musicToggle.title = 'Play music';
+  }
+}
+
+function startGameMusic(){
+  if (musicLoadFailed) {
+    window.open(SUNO_SHARE_URL, '_blank', 'noopener');
+    return;
+  }
+
+  gameMusic.muted = false;
+  const playAttempt = gameMusic.play();
+  if (playAttempt && typeof playAttempt.then === 'function') {
+    playAttempt
+      .then(() => updateMusicButton('playing'))
+      .catch(() => updateMusicButton('retry'));
+  }
+}
+
+musicToggle.addEventListener('click', (event) => {
+  event.stopPropagation();
+
+  if (musicLoadFailed) {
+    window.open(SUNO_SHARE_URL, '_blank', 'noopener');
+    return;
+  }
+
+  if (gameMusic.paused) {
+    startGameMusic();
+  } else {
+    gameMusic.pause();
+    updateMusicButton('paused');
+  }
+});
+
+gameMusic.addEventListener('playing', () => updateMusicButton('playing'));
+gameMusic.addEventListener('pause', () => {
+  if (!gameMusic.ended && !musicLoadFailed) updateMusicButton('paused');
+});
+gameMusic.addEventListener('error', () => {
+  musicLoadFailed = true;
+  updateMusicButton('error');
+});
+
+updateMusicButton('paused');
+
 /* -------- CHARACTER SELECT -------- */
 const charGrid = document.getElementById('char-grid');
 CHARACTERS.forEach(c => {
@@ -1799,6 +1951,8 @@ CHARACTERS.forEach(c => {
 });
 
 document.getElementById('start-btn').onclick = () => {
+  // Start audio directly inside the user's tap so mobile browsers permit playback.
+  startGameMusic();
   document.getElementById('title-screen').classList.remove('active');
   document.getElementById('game-screen').classList.add('active');
   loadScene(0);
